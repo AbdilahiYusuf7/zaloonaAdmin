@@ -1,0 +1,8 @@
+# Block direct web access to source/config files that should only ever be
+# read by PHP itself, never served as-is.
+<FilesMatch "(^\.env|\.sql$|\.pem$|composer\.(json|lock)$)">
+    Require all denied
+</FilesMatch>
+
+RewriteEngine On
+RewriteRule ^(includes|database|certs)/ - [F,L]
