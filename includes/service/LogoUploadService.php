@@ -39,8 +39,9 @@ final class LogoUploadService
     }
 
     /**
-     * Stores a pre-validated file under uploads/salons and returns its stored relative path,
-     * or null when no file was submitted.
+     * Uploads a pre-validated file to the Node backend's image storage (Cloudflare R2) and
+     * returns its public URL, or null when no file was submitted. Logos can't live on this
+     * container's local disk — it's wiped on every redeploy.
      *
      * @param array<string, mixed>|null $file
      */
@@ -51,31 +52,77 @@ final class LogoUploadService
         }
 
         $mimeType = mime_content_type($file['tmp_name']) ?: '';
-        $extension = self::EXTENSIONS_BY_MIME[$mimeType] ?? null;
 
-        if ($extension === null) {
+        if (!isset(self::EXTENSIONS_BY_MIME[$mimeType])) {
             throw new RuntimeException('Unsupported logo file type.');
         }
 
-        $directory = UPLOAD_ROOT . '/salons';
+        $curlFile = new CURLFile($file['tmp_name'], $mimeType, $file['name']);
+        $response = $this->callNodeApi('/api/internal/images', [
+            'image' => $curlFile,
+            'subfolder' => 'salons',
+        ]);
 
-        if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
-            throw new RuntimeException('Could not prepare the upload directory.');
-        }
-
-        $filename = bin2hex(random_bytes(16)) . '.' . $extension;
-
-        if (!move_uploaded_file($file['tmp_name'], $directory . '/' . $filename)) {
+        if (!isset($response['url'])) {
             throw new RuntimeException('Could not save the uploaded logo.');
         }
 
-        return 'salons/' . $filename;
+        return $response['url'];
     }
 
     public function delete(?string $storedPath): void
     {
-        if ($storedPath !== null) {
-            @unlink(UPLOAD_ROOT . '/' . $storedPath);
+        if ($storedPath === null) {
+            return;
         }
+
+        // Older rows store a bare relative path from before uploads moved to R2; nothing to clean up there.
+        if (!str_starts_with($storedPath, 'http://') && !str_starts_with($storedPath, 'https://')) {
+            return;
+        }
+
+        try {
+            $this->callNodeApi('/api/internal/images/delete', json_encode(['url' => $storedPath]), true);
+        } catch (Throwable) {
+            // Best-effort cleanup; a failed delete just leaves an orphaned object in R2.
+        }
+    }
+
+    /** @param array<string, mixed>|string $body */
+    private function callNodeApi(string $path, array|string $body, bool $isJson = false): array
+    {
+        $url = rtrim((string) env('NODE_API_URL', ''), '/') . $path;
+        $key = env('NODE_INTERNAL_API_KEY', '');
+
+        if ($url === '' || $key === '') {
+            throw new RuntimeException('Image storage is not configured.');
+        }
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_HTTPHEADER => array_filter([
+                'X-Internal-Key: ' . $key,
+                $isJson ? 'Content-Type: application/json' : null,
+            ]),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 20,
+        ]);
+
+        $raw = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($raw === false) {
+            throw new RuntimeException('Could not reach image storage: ' . $error);
+        }
+        if ($status >= 400) {
+            throw new RuntimeException('Image storage request failed with status ' . $status);
+        }
+
+        $decoded = $raw !== '' ? json_decode($raw, true) : [];
+        return is_array($decoded) ? $decoded : [];
     }
 }

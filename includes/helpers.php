@@ -14,6 +14,18 @@ function redirect(string $path): never
     exit;
 }
 
+/** Builds a displayable URL for a stored salon logo_path — either a full R2 URL, or (for rows saved before uploads moved to R2) a legacy local path. */
+function salon_logo_url(?string $storedPath): ?string
+{
+    if ($storedPath === null || $storedPath === '') {
+        return null;
+    }
+
+    return str_starts_with($storedPath, 'http://') || str_starts_with($storedPath, 'https://')
+        ? $storedPath
+        : '/uploads/' . $storedPath;
+}
+
 function flash_set(string $type, string $message): void
 {
     $_SESSION['flash'] = ['type' => $type, 'message' => $message];

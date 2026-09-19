@@ -167,7 +167,7 @@ require __DIR__ . '/../includes/layout/header.php';
             </div>
             <div class="modal__body">
                 <?php if (!empty($salon['logo_path'])): ?>
-                    <img src="/uploads/<?= e($salon['logo_path']) ?>" alt="<?= e($salon['name']) ?> logo" class="salon-view__logo">
+                    <img src="<?= e(salon_logo_url($salon['logo_path'])) ?>" alt="<?= e($salon['name']) ?> logo" class="salon-view__logo">
                 <?php endif; ?>
                 <dl class="detail-list">
                     <div><dt>Owner</dt><dd><?= e($salon['owner_name']) ?></dd></div>

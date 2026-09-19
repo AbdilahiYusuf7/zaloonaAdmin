@@ -87,7 +87,7 @@ require __DIR__ . '/../includes/layout/header.php';
                 <tr>
                     <td>
                         <?php if (!empty($salon['logo_path'])): ?>
-                            <img src="/uploads/<?= e($salon['logo_path']) ?>" alt="<?= e($salon['name']) ?> logo" class="table-avatar">
+                            <img src="<?= e(salon_logo_url($salon['logo_path'])) ?>" alt="<?= e($salon['name']) ?> logo" class="table-avatar">
                         <?php else: ?>
                             <span class="table-avatar table-avatar--placeholder"><?= icon('image') ?></span>
                         <?php endif; ?>
@@ -219,7 +219,7 @@ $fieldIdSuffix = '';
             </div>
             <div class="modal__body">
                 <?php if (!empty($salon['logo_path'])): ?>
-                    <img src="/uploads/<?= e($salon['logo_path']) ?>" alt="<?= e($salon['name']) ?> logo" class="salon-view__logo">
+                    <img src="<?= e(salon_logo_url($salon['logo_path'])) ?>" alt="<?= e($salon['name']) ?> logo" class="salon-view__logo">
                 <?php endif; ?>
                 <dl class="detail-list">
                     <div><dt>Owner</dt><dd><?= e($salon['owner_name']) ?></dd></div>
