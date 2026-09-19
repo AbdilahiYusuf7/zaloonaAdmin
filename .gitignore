@@ -1,5 +1,8 @@
 /.env
 /uploads/*
+!/uploads/.htaccess
+!/uploads/*/
+/uploads/*/*
 !/uploads/*/.gitkeep
 /vendor/
 *.log
